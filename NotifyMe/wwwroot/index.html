@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotifyMe - Simple Email Service</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        body { padding: 20px; }
+        .container { max-width: 800px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>NotifyMe</h1>
+        <p>Send a notification and view history.</p>
+
+        <section>
+            <h2>Send Notification</h2>
+            <form id="emailForm">
+                <label for="to">To:</label>
+                <input type="email" id="to" name="to" required placeholder="recipient@example.com">
+
+                <label for="subject">Subject:</label>
+                <input type="text" id="subject" name="subject" required placeholder="Hello there">
+
+                <label for="body">Body:</label>
+                <textarea id="body" name="body" required placeholder="Enter your message here..."></textarea>
+
+                <button type="submit">Send Email</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>History</h2>
+            <button onclick="loadHistory()" class="secondary outline">Refresh</button>
+            <figure>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>To</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <!-- Rows will be populated here -->
+                    </tbody>
+                </table>
+            </figure>
+        </section>
+    </main>
+
+    <script>
+        document.getElementById('emailForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const data = {
+                to: form.to.value,
+                subject: form.subject.value,
+                body: form.body.value
+            };
+
+            const btn = form.querySelector('button');
+            const originalText = btn.innerText;
+            btn.setAttribute('aria-busy', 'true');
+            btn.innerText = 'Sending...';
+
+            try {
+                const response = await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('Email processed!');
+                    form.reset();
+                    loadHistory();
+                } else {
+                    alert('Error sending email.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            } finally {
+                btn.setAttribute('aria-busy', 'false');
+                btn.innerText = originalText;
+            }
+        });
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const data = await response.json();
+                const tbody = document.getElementById('historyTableBody');
+                tbody.innerHTML = '';
+
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const date = new Date(item.sentAt).toLocaleString();
+                    const status = item.success ? '<span class="success">Success</span>' : `<span class="error">Failed: ${item.errorMessage}</span>`;
+                    
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td>${item.recipient}</td>
+                        <td>${item.subject}</td>
+                        <td>${status}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Load history on page load
+        loadHistory();
+    </script>
+</body>
+</html>
